@@ -14,8 +14,7 @@ local function assert_cmd(cmd)
 end
 
 assert_cmd('CodexOpen hello')
--- resume/continue flags not supported by local CLI; commands are not registered
-assert_cmd('CodexExec run-from-command')
+
 
 print('codex.nvim command tests passed')
 vim.defer_fn(function() vim.cmd('qall!') end, 50)

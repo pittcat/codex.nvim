@@ -13,29 +13,133 @@ This plugin follows the structure of `base.nvim` and references ideas from `clau
 
 ```lua
 require('codex').setup({
-  bin = 'codex',          -- path to the codex binary
-  model = nil,            -- override model if desired, e.g. 'o4-mini'
-  ask_for_approval = false, -- pass `-a/--ask-for-approval`
-  cwd_provider = 'git',   -- 'git' | 'cwd' | 'file'
+  bin = 'codex',             -- path to the codex binary
+  model = nil,               -- override model if desired, e.g. 'o4-mini'
+  ask_for_approval = false,  -- pass `-a/--ask-for-approval`
+  cwd_provider = 'git',      -- 'git' | 'cwd' | 'file'
   terminal = {
-    direction = 'horizontal', -- 'horizontal' | 'vertical'
-    size = 15,                -- split height/width
-    reuse = true,             -- reuse terminal buffer if open
+    direction = 'horizontal',  -- 'horizontal' | 'vertical'
+    size = 0.4,                  -- split height/width; 0<value<1 = fraction of current window
+    reuse = true,               -- reuse terminal buffer if open
+    provider = 'native',        -- 'native' | 'snacks' | 'auto'
   },
 })
 
 -- Example mappings
 vim.keymap.set('n', '<leader>co', function() require('codex').open() end, { desc = 'Codex: Open TUI' })
-vim.keymap.set('n', '<leader>ce', function() require('codex').ask() end, { desc = 'Codex: Ask (exec)' })
-vim.keymap.set('v', '<leader>ce', function() require('codex').exec_visual() end, { desc = 'Codex: Exec (visual)' })
+vim.keymap.set('n', '<leader>ct', function() require('codex').toggle() end, { desc = 'Codex: Toggle terminal' })
 ```
+
+## Configuration
+
+- Bin: path to Codex CLI binary. Defaults to `codex`.
+- Model: optional model override passed via `--model`.
+- Ask For Approval: when true, adds `--ask-for-approval` to all runs.
+- Extra Args: additional flags appended to the CLI invocation.
+- Env: extra environment variables for the Codex process.
+- CWD Provider: working directory used for Codex processes.
+  - 'git': project root detected via Git (default)
+  - 'cwd': current Neovim working directory
+  - 'file': directory of the current file
+
+### Logging
+
+- Log Level: `log_level = 'trace'|'debug'|'info'|'warn'|'error'` (case‑insensitive). Also supports `CODEX_LOG_LEVEL` env var.
+- Log to File: set `log_to_file = true` to write logs to a fixed tmp file. The file is truncated on every setup so you always get a fresh log for a new debug session.
+  - Default path: `$TMPDIR/codex.nvim.log` (uses your OS tmp dir; on macOS/Linux typically `/tmp/codex.nvim.log`).
+  - Override path: set `log_file = '/custom/path/codex.nvim.log'` or provide a string value to `log_to_file`.
+
+Example:
+
+```lua
+require('codex').setup({
+  log_level = 'trace',
+  log_to_file = true,           -- writes to $TMPDIR/codex.nvim.log and truncates on setup
+  -- log_to_file = '/tmp/codex.nvim.log', -- custom path (also truncates)
+})
+```
+
+### Terminal Options
+
+- Direction: 'horizontal' (bottom/top split) or 'vertical' (left/right split).
+- Size: split height/width.
+  - Number >= 1: absolute rows (horizontal) or columns (vertical).
+  - 0 < Number < 1: fraction of your current window (not full screen).
+    - Example: 0.33 → one-third of the current window.
+- Position: 'left' | 'right' | 'top' | 'bottom'. When omitted, respects your `splitright`/`splitbelow` settings.
+- Provider: 'native' | 'snacks' | 'auto'.
+  - 'native': use Neovim splits.
+  - 'snacks': use `folke/snacks.nvim` terminal. Errors if Snacks is missing (falls back in practice, with a warning).
+  - 'auto': use Snacks when available, otherwise silently fall back to native.
+- Reuse: reuse the previous terminal buffer if present.
+- Auto Insert Mode: enter insert mode automatically after opening.
+  - When set to false, the terminal opens without taking focus and stays in normal mode (both native and Snacks providers).
+- Fix Display Corruption: schedule a `redraw!` after opening to remedy rare artifacts.
+
+### Sizing Examples
+
+```lua
+-- Vertical split with 40% of the current window width
+require('codex').setup({
+  terminal = { direction = 'vertical', size = 0.40 }
+})
+
+-- Horizontal split with 12 rows
+require('codex').setup({
+  terminal = { direction = 'horizontal', size = 12 }
+})
+
+-- Explicit side + fraction
+require('codex').setup({
+  terminal = { direction = 'vertical', position = 'right', size = 0.25 }
+})
+
+-- Auto provider: Snacks if installed, else native
+require('codex').setup({
+  terminal = { provider = 'auto', direction = 'horizontal', size = 0.33 }
+})
+```
+
+### Behavior Details
+
+- Fractional Size: calculated against the current window before splitting, for both native and Snacks providers.
+- Toggle: `:CodexToggle` toggles the most recent Codex terminal (works with both providers).
+- Reuse: when enabled, new runs reattach to the existing terminal buffer and start the command again.
+- Headless: in headless (no UI) mode, commands run as background jobs without creating splits.
+- Compatibility: legacy `split_width_percentage` is accepted as an alias for `terminal.size` when `size` is not set.
+- Logging to File: when enabled, the plugin truncates the log file on setup and appends new entries with timestamps; warn/error also go through `vim.notify`.
 
 ## Commands
 
 - `:CodexOpen [prompt]` — Open Codex TUI (optionally seeded with an initial prompt)
-- `:CodexExec {prompt}` — Non‑interactive run via `codex exec` in a terminal
-- `:CodexAsk` — Prompt for input then run `codex exec`
-- `:CodexExecVisual` — Use current visual selection as context for `codex exec`
+- `:CodexToggle` — Toggle Codex terminal split
+
+## Snacks Integration
+
+codex.nvim can optionally use folke/snacks.nvim for opening the terminal with its window manager.
+
+- Install and set up `folke/snacks.nvim` in your config.
+- Set `terminal.provider = 'snacks'` to always use Snacks, or `terminal.provider = 'auto'` to use Snacks only when it’s available (falls back to native splits).
+- `terminal.direction`, `size`, and `position` are respected:
+  - `direction = 'horizontal'` uses a bottom/top split; `size` applies to height.
+  - `direction = 'vertical'` uses a left/right split; `size` applies to width.
+  - `position` can be `'left' | 'right' | 'top' | 'bottom'`. When omitted, your `splitright`/`splitbelow` settings decide the side.
+  - When `size` is `< 1`, it’s treated as a fraction of your current window (not the full screen), for both native and Snacks providers.
+
+Example with Snacks:
+
+```lua
+require('codex').setup({
+  terminal = {
+    provider = 'snacks',
+    direction = 'vertical',
+    size = 0.35,         -- 35% of the current window width
+    position = 'right',  -- or 'left', 'bottom', 'top'
+  }
+})
+```
+
+Tip: legacy `split_width_percentage` is still accepted as an alias for `terminal.size` when `size` is not provided.
 
 ## Notes
 
@@ -53,3 +157,9 @@ Run all tests:
 ```bash
 make test
 ```
+
+## Troubleshooting
+
+- Error: `Invalid argument: env` when using Snacks provider
+  - Cause: some environments or older Neovim builds do not accept an empty `env` option through terminal APIs.
+  - Fix: codex.nvim now omits `env` when empty and sanitizes values to strings. If you explicitly set `env`, ensure it is a table of string→string pairs. Consider upgrading Neovim if the issue persists.
