@@ -23,10 +23,8 @@ assert_ok('open', function()
   codex.open('hello')
 end)
 
--- resume/continue flags are not supported by your local CLI; not tested
-
-assert_ok('exec', function()
-  codex.exec('from test')
+assert_ok('toggle', function()
+  codex.toggle()
 end)
 
 print('codex.nvim basic tests passed')
