@@ -51,10 +51,6 @@ function M.build_cmd(bin, sub, args, cfg)
     table.insert(cmd, cfg.model)
   end
 
-  -- ask for approval
-  if cfg.ask_for_approval then
-    table.insert(cmd, '--ask-for-approval')
-  end
 
   -- extra args
   if cfg.extra_args and #cfg.extra_args > 0 then

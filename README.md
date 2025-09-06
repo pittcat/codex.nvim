@@ -1,6 +1,6 @@
 # codex.nvim
 
-Lightweight Neovim integration for OpenAI Codex CLI. Opens the Codex TUI in a terminal split, or runs non‑interactive `codex exec` with prompts from Neovim (including visual selections).
+Lightweight Neovim integration for OpenAI Codex CLI. Opens the Codex TUI in a terminal split.
 
 This plugin follows the structure of `base.nvim` and references ideas from `claudecode.nvim`, but is intentionally minimal.
 
@@ -12,35 +12,12 @@ This plugin follows the structure of `base.nvim` and references ideas from `clau
 ## Quickstart
 
 ```lua
-require('codex').setup({
-  bin = 'codex',             -- path to the codex binary
-  model = nil,               -- override model if desired, e.g. 'o4-mini'
-  ask_for_approval = false,  -- pass `-a/--ask-for-approval`
-  cwd_provider = 'git',      -- 'git' | 'cwd' | 'file'
-  terminal = {
-    direction = 'horizontal',  -- 'horizontal' | 'vertical'
-    size = 0.4,                  -- split height/width; 0<value<1 = fraction of current window
-    reuse = true,               -- reuse terminal buffer if open
-    provider = 'native',        -- 'native' | 'snacks' | 'auto'
-  },
-})
+require('codex').setup()
 
 -- Example mappings
 vim.keymap.set('n', '<leader>co', function() require('codex').open() end, { desc = 'Codex: Open TUI' })
 vim.keymap.set('n', '<leader>ct', function() require('codex').toggle() end, { desc = 'Codex: Toggle terminal' })
 ```
-
-## Configuration
-
-- Bin: path to Codex CLI binary. Defaults to `codex`.
-- Model: optional model override passed via `--model`.
-- Ask For Approval: when true, adds `--ask-for-approval` to all runs.
-- Extra Args: additional flags appended to the CLI invocation.
-- Env: extra environment variables for the Codex process.
-- CWD Provider: working directory used for Codex processes.
-  - 'git': project root detected via Git (default)
-  - 'cwd': current Neovim working directory
-  - 'file': directory of the current file
 
 ### Logging
 

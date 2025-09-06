@@ -32,5 +32,5 @@
 
 ## Configuration & Logging
 - Key options in `config.lua` (e.g., `bin`, `model`, `cwd_provider`, `terminal.*`). Example:
-  - `require("codex").setup({ bin = "codex", ask_for_approval = true, terminal = { direction = "vertical", size = 0.4 } })`
+  - `require("codex").setup({ bin = "codex", terminal = { direction = "vertical", size = 0.4 } })`
 - Set log level via `CODEX_LOG_LEVEL=debug` or `setup({ log_level = "debug" })` during development.
