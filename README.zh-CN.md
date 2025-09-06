@@ -3,7 +3,7 @@
 轻量级 Neovim 集成 OpenAI Codex CLI：在终端分屏中打开 Codex TUI，并支持“任务完成提醒”。
 
 - 代码仓库结构与测试说明见 `README.md`。
-- 系统通知（带提示音）目前原生支持 macOS（通过 `osascript`），其他平台会回退到 `vim.notify`（无系统声音）。
+- 系统通知（带提示音）目前优先使用 macOS 的 `terminal-notifier`，若不可用则回退到 `osascript`，再回退到 `vim.notify`（无系统声音）。
 
 ## 快速开始
 
@@ -53,6 +53,13 @@ require('codex').setup({
     sound = 'Glass',             -- macOS 系统通知声音名
     include_project_path = true, -- 在消息中包含项目路径
     speak = false,               -- 关闭语音播报（默认 false）
+    backend = 'terminal-notifier', -- 优先使用 terminal-notifier
+    terminal_notifier = {
+      ignore_dnd = true,           -- 传递 -ignoreDnD
+      sender = 'com.apple.Terminal',
+      group = 'codex.nvim',
+      activate = 'com.apple.Terminal',
+    },
 
     -- 仅在 alert_on_idle=true 时生效
     idle = {
@@ -68,8 +75,8 @@ require('codex').setup({
 
 ### 行为说明
 
-- macOS：使用 `osascript -e 'display notification ... sound name ...'` 播放系统提示音并显示横幅；默认不使用 `say` 语音播报。
-- 其他平台：若没有 `osascript`，回退为 `vim.notify`（没有系统声音）。
+- macOS：优先使用 `terminal-notifier` 发送系统横幅与声音；若不可用则回退到 `osascript`；再不行回退到 `vim.notify`（无系统声音）。
+- 其他平台：回退为 `vim.notify`（没有系统声音）。
 - 空闲提醒（alert_on_idle）：一次性提醒，提醒后停止监控；下次再次运行 Codex 会自动重新开启监控。
 - 退出提醒（alert_on_exit）：短时间内的重复成功提醒会自动去重（例如 idle 与 exit 同时触发时只发一次）。
 
@@ -97,4 +104,3 @@ require('codex').setup({
   - `notification.enabled` 是否为 `true`，`sound` 是否有效。
 - 提醒过早：适当增大 `idle_checks` 或 `min_change_ticks`，或增大 `check_interval`。
 - 想更快提醒：降低 `check_interval` 或 `idle_checks`（注意误报风险）。
-

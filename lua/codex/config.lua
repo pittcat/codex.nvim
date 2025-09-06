@@ -20,8 +20,15 @@ M.defaults = {
     sound = 'Glass',               -- macOS notification sound name
     title_prefix = 'codex.nvim',   -- title of the notification
     include_project_path = false,  -- include cwd/project path in message
-    speak = false,                 -- also speak a short message via `say`
+    speak = false,                 -- also speak a short message via `say` (macOS)
     voice = nil,                   -- voice for `say` (e.g., 'Samantha')
+    backend = 'terminal-notifier', -- preferred backend on macOS ('terminal-notifier' | 'osascript')
+    terminal_notifier = {
+      ignore_dnd = true,           -- pass -ignoreDnD to bypass Do Not Disturb
+      sender = 'com.apple.Terminal',
+      group = 'codex.nvim',
+      activate = 'com.apple.Terminal',
+    },
     idle = {                       -- idle detection tuning (used when alert_on_idle=true)
       check_interval = 1500,       -- ms between checks
       idle_checks = 3,             -- consecutive no-change checks

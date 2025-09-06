@@ -129,10 +129,17 @@ require('codex').setup({
   -- alert_on_exit = true,     -- notify when the job exits
 
   notification = {
-    enabled = true,              -- macOS via osascript; otherwise falls back to vim.notify
+    enabled = true,
     sound = 'Glass',             -- macOS notification sound name
     include_project_path = true, -- include project/cwd in the message
     speak = false,               -- off by default (no TTS)
+    backend = 'terminal-notifier', -- prefer terminal-notifier on macOS
+    terminal_notifier = {
+      ignore_dnd = true,           -- pass -ignoreDnD
+      sender = 'com.apple.Terminal',
+      group = 'codex.nvim',
+      activate = 'com.apple.Terminal',
+    },
     -- Voice is only used if speak=true
     -- voice = 'Samantha',
 
@@ -149,8 +156,8 @@ require('codex').setup({
 ```
 
 Behavior:
-- macOS: uses `osascript -e 'display notification ... sound name ...'` for system sound + banner. Optional `say` is disabled by default.
-- Other OS: falls back to `vim.notify` (no system sound) if `osascript` is unavailable.
+- macOS: prefers `terminal-notifier` for native banner + sound; falls back to `osascript` if available; otherwise uses `vim.notify`.
+- Other OS: falls back to `vim.notify` (no system sound).
 - Idle alert is one-shot: once notified, the idle monitor stops until you re-run Codex.
 - Exit alert is de-duplicated: suppresses repeated success notifications within a short window.
 
