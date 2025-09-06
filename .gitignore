@@ -1,0 +1,32 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+tags
+
+# Neovim
+.nvimlog
+
+# Tooling
+.serena/
+
+# Logs and temp
+*.log
+tmp/
+.cache/
+
+# Builds/Deps (not typical here, but safe)
+dist/
+build/
+coverage/
+node_modules/
+
+# Env files
+.env
+.env.*
