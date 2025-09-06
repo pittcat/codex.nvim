@@ -79,6 +79,8 @@ require('codex').setup({
 - 其他平台：回退为 `vim.notify`（没有系统声音）。
 - 空闲提醒（alert_on_idle）：一次性提醒，提醒后停止监控；下次再次运行 Codex 会自动重新开启监控。
 - 退出提醒（alert_on_exit）：短时间内的重复成功提醒会自动去重（例如 idle 与 exit 同时触发时只发一次）。
+- 空闲提醒抑制：若终端尾部文本包含取消标记（如“Request interrupted by user”、“Canceled”、“取消”），则不发送完成提醒。可通过 `notification.idle.cancel_markers` 配置。
+  - 默认已包含：“🖐  Tell the model what to do differently” 以及不带表情的纯文本版本。
 
 ### 参数解释（idle）
 

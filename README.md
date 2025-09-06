@@ -160,6 +160,8 @@ Behavior:
 - Other OS: falls back to `vim.notify` (no system sound).
 - Idle alert is one-shot: once notified, the idle monitor stops until you re-run Codex.
 - Exit alert is de-duplicated: suppresses repeated success notifications within a short window.
+- Idle alert suppression: if the tail content contains cancellation markers (e.g., "Request interrupted by user", "Canceled", "取消"), no notification is sent. Configure via `notification.idle.cancel_markers`.
+  - Included by default: "🖐  Tell the model what to do differently" and its plain variant without the emoji.
 
 Idle Parameters Explained:
 - `check_interval` (ms): polling interval to sample terminal tail content.
