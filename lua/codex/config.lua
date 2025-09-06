@@ -9,6 +9,27 @@ M.defaults = {
   log_level = (vim.env.CODEX_LOG_LEVEL or 'info'), -- trace|debug|info|warn|error
   log_to_file = false,      -- true|string: write logs to a fixed tmp file (or custom path)
   log_file = nil,           -- custom log file path; defaults to $TMPDIR/codex.nvim.log when log_to_file=true
+  -- Alerts/Notifications
+  -- When enabled, show a notification when the Codex terminal job exits
+  alert_on_exit = false,
+  -- When enabled, monitor terminal output and notify on idle (task completion without exiting)
+  alert_on_idle = false,
+  -- System notification options (macOS supported via osascript). Used when alert_on_exit=true.
+  notification = {
+    enabled = true,                -- master enable for system notifications
+    sound = 'Glass',               -- macOS notification sound name
+    title_prefix = 'codex.nvim',   -- title of the notification
+    include_project_path = false,  -- include cwd/project path in message
+    speak = false,                 -- also speak a short message via `say`
+    voice = nil,                   -- voice for `say` (e.g., 'Samantha')
+    idle = {                       -- idle detection tuning (used when alert_on_idle=true)
+      check_interval = 1500,       -- ms between checks
+      idle_checks = 3,             -- consecutive no-change checks
+      lines_to_check = 40,         -- tail lines considered for hashing
+      require_activity = true,     -- only notify after seeing output first
+      min_change_ticks = 3,        -- require at least N content changes before eligible
+    },
+  },
   terminal = {
     direction = 'horizontal', -- 'horizontal' | 'vertical'
     size = 15,                -- split height/width; if 0< size <1, treated as fraction

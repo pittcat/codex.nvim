@@ -1,0 +1,147 @@
+local logger = require('codex.logger')
+local notifier = require('codex.notify')
+
+local M = {}
+
+local defaults = {
+  check_interval = 1500,   -- ms between checks
+  idle_checks = 3,         -- consecutive no-change checks to consider idle
+  lines_to_check = 40,     -- tail lines considered for hashing
+  require_activity = true, -- only notify after some activity was detected
+  min_change_ticks = 3,    -- require at least N changes before eligible
+}
+
+local monitors = {} -- bufnr -> { timer, last_hash, no_change, saw_activity, idle_notified, cwd, opts }
+
+local function simple_hash(str)
+  if not str or str == '' then return 'empty' end
+  local h = 0
+  for i = 1, #str do
+    h = (h * 31 + string.byte(str, i)) % 2147483647
+  end
+  return tostring(h)
+end
+
+local function get_tail_content(bufnr, lines_to_check)
+  if not (bufnr and vim.api.nvim_buf_is_valid(bufnr)) then return '', false end
+  local total = vim.api.nvim_buf_line_count(bufnr)
+  local start = math.max(0, total - lines_to_check)
+  local lines = vim.api.nvim_buf_get_lines(bufnr, start, -1, false)
+  -- collapse consecutive trailing blanks lightly
+  local collected, nonempty_seen = {}, false
+  for i = #lines, 1, -1 do
+    local line = lines[i]
+    if line and line:match('%S') then
+      nonempty_seen = true
+      table.insert(collected, 1, line)
+      if #collected >= lines_to_check then break end
+    elseif nonempty_seen then
+      table.insert(collected, 1, line)
+    end
+  end
+  return table.concat(collected, '\n'), true
+end
+
+local function stop_timer(bufnr)
+  local m = monitors[bufnr]
+  if m and m.timer then
+    pcall(m.timer.stop, m.timer)
+    pcall(m.timer.close, m.timer)
+    m.timer = nil
+  end
+end
+
+function M.stop(bufnr)
+  if bufnr and monitors[bufnr] then
+    stop_timer(bufnr)
+    monitors[bufnr] = nil
+  end
+end
+
+function M.stop_all()
+  for b,_ in pairs(monitors) do M.stop(b) end
+end
+
+--- Start idle monitor on a terminal buffer
+--- @param bufnr integer terminal buffer id
+--- @param cwd string|nil cwd for notification context
+--- @param user table|nil { check_interval, idle_checks, lines_to_check, require_activity }
+function M.start(bufnr, cwd, user)
+  if not (bufnr and vim.api.nvim_buf_is_valid(bufnr)) then return false end
+  local opts = vim.tbl_deep_extend('force', vim.deepcopy(defaults), user or {})
+
+  -- idempotent: restart existing with new opts
+  if monitors[bufnr] then
+    stop_timer(bufnr)
+  end
+
+  monitors[bufnr] = {
+    timer = vim.loop.new_timer(),
+    last_hash = '',
+    no_change = 0,
+    saw_activity = false,
+    idle_notified = false,
+    change_ticks = 0,
+    cwd = cwd,
+    opts = opts,
+  }
+
+  local function tick()
+    local m = monitors[bufnr]
+    if not m then return end
+    if not vim.api.nvim_buf_is_valid(bufnr) then
+      M.stop(bufnr)
+      return
+    end
+
+    -- Only monitor terminal buffers
+    if vim.api.nvim_buf_get_option(bufnr, 'buftype') ~= 'terminal' then
+      M.stop(bufnr)
+      return
+    end
+
+    local content, ok = get_tail_content(bufnr, m.opts.lines_to_check)
+    if not ok then return end
+    local h = simple_hash(content)
+    if h ~= m.last_hash then
+      m.last_hash = h
+      m.no_change = 0
+      m.saw_activity = true
+      m.idle_notified = false
+      m.change_ticks = (m.change_ticks or 0) + 1
+      return
+    end
+
+    -- unchanged
+    m.no_change = m.no_change + 1
+    if m.no_change >= m.opts.idle_checks then
+      if ((not m.opts.require_activity) or m.saw_activity)
+        and ((m.change_ticks or 0) >= (m.opts.min_change_ticks or 0)) then
+        if not m.idle_notified then
+          m.idle_notified = true
+          notifier.job_exit(true, 0, m.cwd)
+          -- Stop monitoring after first idle notification to avoid repeated checks
+          M.stop(bufnr)
+        end
+      end
+    end
+  end
+
+  monitors[bufnr].timer:start(1000, opts.check_interval, vim.schedule_wrap(tick))
+
+  -- auto stop on buffer wipe/term close
+  local group = vim.api.nvim_create_augroup('CodexIdleMon', { clear = false })
+  vim.api.nvim_create_autocmd({ 'BufWipeout', 'TermClose' }, {
+    group = group,
+    buffer = bufnr,
+    once = true,
+    callback = function()
+      M.stop(bufnr)
+    end,
+  })
+
+  logger.debug('idle', 'Started idle monitor on bufnr', bufnr)
+  return true
+end
+
+return M

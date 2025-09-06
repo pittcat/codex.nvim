@@ -2,6 +2,7 @@ local logger = require('codex.logger')
 local config = require('codex.config')
 local utils  = require('codex.utils')
 local term   = require('codex.terminal')
+local notify = require('codex.notify')
 
 local M = {}
 
@@ -15,6 +16,8 @@ function M.setup(opts)
   M.state.opts = config.apply(opts)
   -- initialize logger with configured level
   pcall(logger.setup, M.state.opts)
+  -- setup notifier
+  pcall(notify.setup, M.state.opts.notification)
   logger.info('setup', 'codex.nvim initialized')
   M._create_commands()
   return M
@@ -39,6 +42,9 @@ local function run_in_terminal(cmd, cwd)
     reuse = tcfg.reuse ~= false,
     cwd = cwd,
     env = env,
+    alert_on_exit = M.state.opts.alert_on_exit == true,
+    alert_on_idle = M.state.opts.alert_on_idle == true,
+    notification = M.state.opts.notification,
   })
 end
 

@@ -8,6 +8,13 @@ local M = {
 }
 
 local logger = require('codex.logger')
+local notifier = require('codex.notify')
+local idlemon = require('codex.idle')
+
+local function send_exit_alert(code, cwd)
+  local ok = (code == 0)
+  notifier.job_exit(ok, tonumber(code) or -1, cwd)
+end
 
 local function is_headless()
   local uis = vim.api and vim.api.nvim_list_uis and vim.api.nvim_list_uis() or {}
@@ -230,6 +237,32 @@ function M.run(cmd, opts)
         M.state.bufnr = term.buf
         M.state.winid = term.win
         logger.debug('run', 'State set - snacks_term: exists, bufnr:', term.buf, 'winid:', term.win)
+        -- Start idle monitor for ongoing tasks if enabled
+        if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
+          local idle_opts = (opts.notification and opts.notification.idle) or {}
+          idlemon.start(M.state.bufnr, opts.cwd, idle_opts)
+        end
+        -- Alerts: hook TermClose on the terminal buffer if requested
+        if opts.alert_on_exit and term and term.on then
+          pcall(function()
+            term:on('TermClose', function()
+              local code = (vim.v and vim.v.event and vim.v.event.status) or nil
+              send_exit_alert(tonumber(code) or -1, opts.cwd)
+            end, { buf = true })
+          end)
+        elseif opts.alert_on_exit and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
+          -- Fallback: buffer-local TermClose autocmd
+          local group = vim.api.nvim_create_augroup('CodexTermAlerts', { clear = false })
+          vim.api.nvim_create_autocmd('TermClose', {
+            group = group,
+            buffer = M.state.bufnr,
+            once = true,
+            callback = function()
+              local code = (vim.v and vim.v.event and vim.v.event.status) or nil
+              send_exit_alert(tonumber(code) or -1, opts.cwd)
+            end,
+          })
+        end
       else
         -- Fallback to current window/buffer if any
         local wid = vim.api.nvim_get_current_win()
@@ -263,6 +296,11 @@ function M.run(cmd, opts)
     if opts.cwd then job_opts.cwd = opts.cwd end
     local env = sanitize_env(opts.env)
     if env then job_opts.env = env end
+    if opts.alert_on_exit then
+      job_opts.on_exit = function(_, code, _)
+        send_exit_alert(tonumber(code) or -1, opts.cwd)
+      end
+    end
     local job = vim.fn.jobstart(cmd, job_opts)
     if job <= 0 then
       logger.error('terminal', 'Failed to start headless job: ' .. tostring(job))
@@ -290,9 +328,19 @@ function M.run(cmd, opts)
     if opts.cwd then term_opts.cwd = opts.cwd end
     local env = sanitize_env(opts.env)
     if env then term_opts.env = env end
+    if opts.alert_on_exit then
+      term_opts.on_exit = function(_, code, _)
+        send_exit_alert(tonumber(code) or -1, opts.cwd)
+      end
+    end
     vim.api.nvim_buf_call(M.state.bufnr, function()
       vim.fn.termopen(cmd, term_opts)
     end)
+    -- ensure idle monitor is running on reuse as well
+    if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
+      local idle_opts = (opts.notification and opts.notification.idle) or {}
+      idlemon.start(M.state.bufnr, opts.cwd, idle_opts)
+    end
     if not is_headless() then
       if opts.auto_insert ~= false then
         vim.cmd('startinsert')
@@ -316,6 +364,11 @@ function M.run(cmd, opts)
   if opts.cwd then term_opts.cwd = opts.cwd end
   local env = sanitize_env(opts.env)
   if env then term_opts.env = env end
+  if opts.alert_on_exit then
+    term_opts.on_exit = function(_, code, _)
+      send_exit_alert(tonumber(code) or -1, opts.cwd)
+    end
+  end
 
   local job = vim.fn.termopen(cmd, term_opts)
   if job <= 0 then
@@ -325,6 +378,12 @@ function M.run(cmd, opts)
   M.state.bufnr = buf
   M.state.winid = win
   logger.debug('run', 'Native terminal state - bufnr:', buf, 'winid:', win)
+
+  -- start idle monitor for new terminals
+  if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
+    local idle_opts = (opts.notification and opts.notification.idle) or {}
+    idlemon.start(M.state.bufnr, opts.cwd, idle_opts)
+  end
 
   -- Enter insert mode for interactive TUI
   if not is_headless() then

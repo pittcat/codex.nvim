@@ -118,6 +118,53 @@ require('codex').setup({
 
 Tip: legacy `split_width_percentage` is still accepted as an alias for `terminal.size` when `size` is not provided.
 
+### Alerts
+
+- Job Exit Alert and Idle Completion Alert: system notification on completion.
+
+```lua
+require('codex').setup({
+  -- Exactly one of these is recommended for clarity:
+  alert_on_idle = true,        -- notify when terminal output becomes idle (job keeps running)
+  -- alert_on_exit = true,     -- notify when the job exits
+
+  notification = {
+    enabled = true,              -- macOS via osascript; otherwise falls back to vim.notify
+    sound = 'Glass',             -- macOS notification sound name
+    include_project_path = true, -- include project/cwd in the message
+    speak = false,               -- off by default (no TTS)
+    -- Voice is only used if speak=true
+    -- voice = 'Samantha',
+
+    -- Idle detection tuning (used when alert_on_idle=true)
+    idle = {
+      check_interval = 1500,     -- ms between checks
+      idle_checks = 3,           -- consecutive no-change checks to consider idle
+      lines_to_check = 40,       -- how many tail lines to hash
+      require_activity = true,   -- require seeing output changes before considering idle
+      min_change_ticks = 3,      -- require at least N changes before eligible
+    },
+  },
+})
+```
+
+Behavior:
+- macOS: uses `osascript -e 'display notification ... sound name ...'` for system sound + banner. Optional `say` is disabled by default.
+- Other OS: falls back to `vim.notify` (no system sound) if `osascript` is unavailable.
+- Idle alert is one-shot: once notified, the idle monitor stops until you re-run Codex.
+- Exit alert is de-duplicated: suppresses repeated success notifications within a short window.
+
+Idle Parameters Explained:
+- `check_interval` (ms): polling interval to sample terminal tail content.
+- `idle_checks`: number of consecutive identical samples to consider idle.
+- `lines_to_check`: how many tail lines are included in the hash comparison.
+- `require_activity`: only consider idle after seeing at least one change.
+- `min_change_ticks`: require at least N changes before an idle period can trigger.
+
+Tip: Prefer enabling either `alert_on_idle` or `alert_on_exit` to avoid redundant signals. Internally, duplicate notifications are still suppressed for safety.
+
+Chinese Documentation: see `README.zh-CN.md`.
+
 ## Notes
 
 - Root detection defaults to the Git repo root. Override via `cwd_provider = 'cwd'` or `'file'`.
