@@ -35,9 +35,12 @@ M.defaults = {
       lines_to_check = 40,         -- tail lines considered for hashing
       require_activity = true,     -- only notify after seeing output first
       min_change_ticks = 3,        -- require at least N content changes before eligible
+      min_active_ms = 1500,        -- minimum ms from first content change to idle
       cancel_markers = {           -- suppress idle notify if tail contains any of these
         '🖐  Tell the model what to do differently',
         'Tell the model what to do differently',
+        'To get started, describe a task or try one of these commands',
+        '/status - show current session configuration',
       },
     },
   },

@@ -172,4 +172,31 @@ function M.job_exit(ok, code, cwd)
   last_sent[key] = { ok = ok, ts = now }
 end
 
+--- Send an explicit "idle" system notification (non-exit completion)
+--- @param cwd string|nil working directory to include
+function M.idle(cwd)
+  if not opts.enabled then return end
+  local key = 'idle:' .. (cwd or '__global__')
+  local now = (vim.loop and vim.loop.hrtime and (vim.loop.hrtime() / 1000000)) or (os.time() * 1000)
+  local prev = last_sent[key]
+  if prev and (now - prev.ts < 30000) then
+    return
+  end
+  local title
+  if opts.include_project_path and cwd and cwd ~= '' then
+    title = (cwd:match('([^/\\]+)[/\\]?$') or opts.title_prefix or 'codex.nvim')
+  else
+    title = opts.title_prefix or 'codex.nvim'
+  end
+  local message = 'Codex terminal is idle'
+  if opts.include_project_path and cwd and cwd ~= '' then
+    message = message .. '\nPath: ' .. tostring(cwd)
+  end
+  send_notification(title, message, true)
+
+  local spoken_text = 'Codex is idle'
+  macos_say(spoken_text)
+  last_sent[key] = { ok = true, ts = now }
+end
+
 return M

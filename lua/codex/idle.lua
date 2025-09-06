@@ -9,6 +9,7 @@ local defaults = {
   lines_to_check = 40,     -- tail lines considered for hashing
   require_activity = true, -- only notify after some activity was detected
   min_change_ticks = 3,    -- require at least N changes before eligible
+  min_active_ms = 1500,    -- require at least this long between first change and idle
   cancel_markers = {       -- if any of these substrings appear in tail, treat as canceled and do not notify
     'Request interrupted by user',
     'interrupted by user',
@@ -17,10 +18,13 @@ local defaults = {
     '🖐  Tell the model what to do differently',
     'Tell the model what to do differently',
     '取消',
+    -- Prevent false positives when Codex just opened and shows the welcome/help screen
+    'To get started, describe a task or try one of these commands',
+    '/status - show current session configuration',
   },
 }
 
-local monitors = {} -- bufnr -> { timer, last_hash, no_change, saw_activity, idle_notified, cwd, opts }
+local monitors = {} -- bufnr -> { timer, last_hash, no_change, saw_activity, idle_notified, cwd, opts, change_ticks, first_change_ts }
 
 local function simple_hash(str)
   if not str or str == '' then return 'empty' end
@@ -91,6 +95,7 @@ function M.start(bufnr, cwd, user)
     saw_activity = false,
     idle_notified = false,
     change_ticks = 0,
+    first_change_ts = nil,
     cwd = cwd,
     opts = opts,
   }
@@ -127,23 +132,46 @@ function M.start(bufnr, cwd, user)
       end
     end
     local h = simple_hash(content)
+    -- On first observation, establish a baseline without counting as activity.
+    if m.last_hash == '' then
+      m.last_hash = h
+      m.no_change = 0
+      return
+    end
     if h ~= m.last_hash then
       m.last_hash = h
       m.no_change = 0
       m.saw_activity = true
       m.idle_notified = false
       m.change_ticks = (m.change_ticks or 0) + 1
+      if not m.first_change_ts and vim.loop and vim.loop.hrtime then
+        m.first_change_ts = vim.loop.hrtime() -- ns
+      end
       return
     end
 
     -- unchanged
     m.no_change = m.no_change + 1
     if m.no_change >= m.opts.idle_checks then
-      if ((not m.opts.require_activity) or m.saw_activity)
+      -- Optional time-based guard: require a small active period before idle can trigger
+      local time_ok = true
+      local min_active_ms = tonumber(m.opts.min_active_ms or 0) or 0
+      if min_active_ms > 0 and m.first_change_ts and vim.loop and vim.loop.hrtime then
+        local elapsed_ms = (vim.loop.hrtime() - m.first_change_ts) / 1e6
+        time_ok = (elapsed_ms >= min_active_ms)
+      end
+
+      if time_ok
+        and ((not m.opts.require_activity) or m.saw_activity)
         and ((m.change_ticks or 0) >= (m.opts.min_change_ticks or 0)) then
         if not m.idle_notified then
           m.idle_notified = true
-          notifier.job_exit(true, 0, m.cwd)
+          -- Send an explicit idle notification instead of a job-exit success
+          if notifier.idle then
+            notifier.idle(m.cwd)
+          else
+            notifier.job_exit(true, 0, m.cwd)
+          end
           -- Stop monitoring after first idle notification to avoid repeated checks
           M.stop(bufnr)
         end
