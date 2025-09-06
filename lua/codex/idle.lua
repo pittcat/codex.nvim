@@ -9,6 +9,15 @@ local defaults = {
   lines_to_check = 40,     -- tail lines considered for hashing
   require_activity = true, -- only notify after some activity was detected
   min_change_ticks = 3,    -- require at least N changes before eligible
+  cancel_markers = {       -- if any of these substrings appear in tail, treat as canceled and do not notify
+    'Request interrupted by user',
+    'interrupted by user',
+    'Canceled',
+    'Cancelled',
+    '🖐  Tell the model what to do differently',
+    'Tell the model what to do differently',
+    '取消',
+  },
 }
 
 local monitors = {} -- bufnr -> { timer, last_hash, no_change, saw_activity, idle_notified, cwd, opts }
@@ -102,6 +111,21 @@ function M.start(bufnr, cwd, user)
 
     local content, ok = get_tail_content(bufnr, m.opts.lines_to_check)
     if not ok then return end
+
+    -- Detect explicit cancellation markers in tail content; if present, stop monitoring without notifying
+    do
+      local markers = m.opts.cancel_markers or {}
+      -- case-insensitive substring matching
+      local hay = tostring(content):lower()
+      for _, mark in ipairs(markers) do
+        local needle = (mark ~= nil) and tostring(mark):lower() or ''
+        if needle ~= '' and hay:find(needle, 1, true) then
+          logger.debug('idle', 'Cancellation marker detected; suppressing idle notification and stopping monitor')
+          M.stop(bufnr)
+          return
+        end
+      end
+    end
     local h = simple_hash(content)
     if h ~= m.last_hash then
       m.last_hash = h

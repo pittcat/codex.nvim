@@ -35,6 +35,10 @@ M.defaults = {
       lines_to_check = 40,         -- tail lines considered for hashing
       require_activity = true,     -- only notify after seeing output first
       min_change_ticks = 3,        -- require at least N content changes before eligible
+      cancel_markers = {           -- suppress idle notify if tail contains any of these
+        '🖐  Tell the model what to do differently',
+        'Tell the model what to do differently',
+      },
     },
   },
   terminal = {
