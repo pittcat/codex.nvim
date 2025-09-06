@@ -10,6 +10,7 @@ local M = {
 local logger = require('codex.logger')
 local notifier = require('codex.notify')
 local idlemon = require('codex.idle')
+local terminal_bridge = require('codex.terminal_bridge')
 
 local function send_exit_alert(code, cwd)
   local ok = (code == 0)
@@ -237,6 +238,10 @@ function M.run(cmd, opts)
         M.state.bufnr = term.buf
         M.state.winid = term.win
         logger.debug('run', 'State set - snacks_term: exists, bufnr:', term.buf, 'winid:', term.win)
+        -- Auto-attach terminal bridge if enabled
+        if opts.terminal_bridge_auto_attach then
+          terminal_bridge.auto_attach(term.buf, term.win)
+        end
         -- Start idle monitor for ongoing tasks if enabled
         if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
           local idle_opts = (opts.notification and opts.notification.idle) or {}
@@ -307,6 +312,8 @@ function M.run(cmd, opts)
     else
       table.insert(M.state.jobs, job)
     end
+    -- Note: terminal_bridge is not supported in headless mode
+    -- as there are no terminal buffers with terminal_job_id
     return nil, nil
   end
 
@@ -336,6 +343,10 @@ function M.run(cmd, opts)
     vim.api.nvim_buf_call(M.state.bufnr, function()
       vim.fn.termopen(cmd, term_opts)
     end)
+    -- Auto-attach terminal bridge on reuse if enabled
+    if opts.terminal_bridge_auto_attach then
+      terminal_bridge.auto_attach(M.state.bufnr, M.state.winid)
+    end
     -- ensure idle monitor is running on reuse as well
     if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then
       local idle_opts = (opts.notification and opts.notification.idle) or {}
@@ -378,6 +389,11 @@ function M.run(cmd, opts)
   M.state.bufnr = buf
   M.state.winid = win
   logger.debug('run', 'Native terminal state - bufnr:', buf, 'winid:', win)
+
+  -- Auto-attach terminal bridge if enabled
+  if opts.terminal_bridge_auto_attach then
+    terminal_bridge.auto_attach(buf, win)
+  end
 
   -- start idle monitor for new terminals
   if opts.alert_on_idle and M.state.bufnr and vim.api.nvim_buf_is_valid(M.state.bufnr) then

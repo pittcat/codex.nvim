@@ -50,6 +50,11 @@ M.defaults = {
     fix_display_corruption = false, -- redraw after open
     reuse = true,             -- reuse terminal buffer
   },
+  terminal_bridge = {
+    path_format = 'abs',      -- 'abs' | 'rel' | 'basename' - format for sent paths
+    path_prefix = '@',        -- prefix string added to paths (e.g., '@' for Claude Code)
+    auto_attach = true,       -- automatically attach terminals created by CodexOpen
+  },
 }
 
 M.options = {}

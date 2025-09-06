@@ -3,6 +3,7 @@ local config = require('codex.config')
 local utils  = require('codex.utils')
 local term   = require('codex.terminal')
 local notify = require('codex.notify')
+local terminal_bridge = require('codex.terminal_bridge')
 
 local M = {}
 
@@ -31,6 +32,7 @@ end
 
 local function run_in_terminal(cmd, cwd)
   local tcfg = M.state.opts.terminal or {}
+  local bridge_cfg = M.state.opts.terminal_bridge or {}
   local env = base_env(M.state.opts.env)
   return term.run(cmd, {
     direction = tcfg.direction or 'horizontal',
@@ -45,6 +47,7 @@ local function run_in_terminal(cmd, cwd)
     alert_on_exit = M.state.opts.alert_on_exit == true,
     alert_on_idle = M.state.opts.alert_on_idle == true,
     notification = M.state.opts.notification,
+    terminal_bridge_auto_attach = bridge_cfg.auto_attach ~= false,
   })
 end
 
@@ -85,6 +88,14 @@ function M._create_commands()
   vim.api.nvim_create_user_command('CodexToggle', function()
     M.toggle()
   end, { desc = 'Toggle Codex terminal split' })
+
+  vim.api.nvim_create_user_command('CodexSendPath', function()
+    local bridge_cfg = M.state.opts.terminal_bridge or {}
+    terminal_bridge.send_buffer_path({
+      path_format = bridge_cfg.path_format or 'abs',
+      path_prefix = bridge_cfg.path_prefix or '',
+    })
+  end, { desc = 'Send current buffer path to attached Codex terminal' })
 
 
 end
