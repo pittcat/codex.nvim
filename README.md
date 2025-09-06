@@ -91,6 +91,27 @@ require('codex').setup({
 - `:CodexOpen [prompt]` — Open Codex TUI (optionally seeded with an initial prompt)
 - `:CodexToggle` — Toggle Codex terminal split
 
+### Terminal Bridge Commands
+
+Send file paths and code selections directly to an open Codex terminal:
+
+- `:CodexSendPath` — Send current buffer path to attached terminal (e.g., `@README.md`)
+- `:CodexSendSelection` — Send visual selection as reference or content based on configuration
+- `:CodexSendReference` — Send visual selection as file reference (e.g., `@file.lua#L10-L20`)  
+- `:CodexSendContent` — Send visual selection with actual code content
+
+**Usage Examples:**
+```vim
+" Send current file path
+:CodexSendPath
+
+" Visual mode: select code then send reference
+:'<,'>CodexSendSelection
+
+" Send specific line range as reference
+:187,188CodexSendReference
+```
+
 ## Snacks Integration
 
 codex.nvim can optionally use folke/snacks.nvim for opening the terminal with its window manager.
@@ -173,6 +194,47 @@ Idle Parameters Explained:
 Tip: Prefer enabling either `alert_on_idle` or `alert_on_exit` to avoid redundant signals. Internally, duplicate notifications are still suppressed for safety.
 
 Chinese Documentation: see `README.zh-CN.md`.
+
+## Terminal Bridge
+
+The terminal bridge allows sending file paths and code selections directly to an open Codex terminal:
+
+```lua
+require('codex').setup({
+  terminal_bridge = {
+    path_format = 'abs',          -- 'abs' | 'rel' | 'basename' - format for file paths
+    path_prefix = '@',            -- prefix added to paths (e.g., '@' for Claude Code)
+    auto_attach = true,           -- automatically attach terminals created by CodexOpen
+    selection_mode = 'reference', -- 'reference' | 'content' - default for visual selections
+  },
+})
+```
+
+**Configuration Options:**
+- `path_format`: How file paths are formatted:
+  - `'abs'`: Absolute paths (`/full/path/to/file.lua`)
+  - `'rel'`: Relative to current working directory (`./file.lua`)
+  - `'basename'`: File name only (`file.lua`)
+- `path_prefix`: String prepended to paths (typically `'@'` for Claude Code compatibility)
+- `auto_attach`: When `true`, terminals opened by `:CodexOpen` are automatically attached to current tab
+- `selection_mode`: Default behavior for `:CodexSendSelection`:
+  - `'reference'`: Send file reference like `@file.lua#L10-L20`
+  - `'content'`: Send reference + actual code content
+
+**Tab Isolation**: Each tab maintains its own terminal connection, preventing confusion when working with multiple tabs.
+
+**Workflow:**
+1. Open Codex terminal: `:CodexOpen` (automatically attaches to current tab)
+2. Send file path: `:CodexSendPath` 
+3. Select code and send reference: `:'<,'>CodexSendSelection`
+
+**Example Key Mappings:**
+```lua
+-- Terminal bridge shortcuts
+vim.keymap.set('n', '<leader>cp', ':CodexSendPath<CR>', { desc = 'Codex: Send file path' })
+vim.keymap.set('v', '<leader>cs', ":'<,'>CodexSendSelection<CR>", { desc = 'Codex: Send selection' })
+vim.keymap.set('v', '<leader>cr', ":'<,'>CodexSendReference<CR>", { desc = 'Codex: Send reference' })
+```
 
 ## Notes
 
