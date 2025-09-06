@@ -97,6 +97,24 @@ function M._create_commands()
     })
   end, { desc = 'Send current buffer path to attached Codex terminal' })
 
+  vim.api.nvim_create_user_command('CodexSendSelection', function(args)
+    local bridge_cfg = M.state.opts.terminal_bridge or {}
+    if bridge_cfg.selection_mode == 'content' then
+      terminal_bridge.send_visual_content(args)
+    else
+      -- Default to reference mode
+      terminal_bridge.send_visual_reference(args)
+    end
+  end, { range = true, desc = 'Send visual selection to attached Codex terminal' })
+
+  vim.api.nvim_create_user_command('CodexSendReference', function(args)
+    terminal_bridge.send_visual_reference(args)
+  end, { range = true, desc = 'Send visual selection reference to attached Codex terminal' })
+
+  vim.api.nvim_create_user_command('CodexSendContent', function(args)
+    terminal_bridge.send_visual_content(args)
+  end, { range = true, desc = 'Send visual selection content to attached Codex terminal' })
+
 
 end
 

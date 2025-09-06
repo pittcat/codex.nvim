@@ -157,6 +157,133 @@ function M.cleanup_invalid_terminals()
   end
 end
 
+--- 获取 visual 选择的范围
+---@param args table|nil 命令参数，包含 line1 和 line2
+---@return number start_line 开始行号
+---@return number end_line 结束行号
+function M.get_visual_selection_range(args)
+  -- 如果有命令参数，使用命令范围
+  if args and args.line1 and args.line2 then
+    return args.line1, args.line2
+  end
+
+  -- 获取 visual 选择标记
+  local start_line = vim.fn.getpos("'<")[2]
+  local end_line = vim.fn.getpos("'>")[2]
+
+  -- 如果标记未设置（没有 visual 选择），使用当前行
+  if start_line == 0 or end_line == 0 then
+    local line = vim.fn.line('.')
+    return line, line
+  end
+
+  return start_line, end_line
+end
+
+--- 获取相对文件路径
+---@return string filepath 相对于当前工作目录的路径
+function M.get_relative_filepath()
+  return vim.fn.fnamemodify(vim.fn.expand('%'), ':~:.')
+end
+
+--- 格式化文件引用
+---@param filepath string 文件路径
+---@param start_line number 开始行号
+---@param end_line number 结束行号
+---@return string reference 格式化的引用（如 @file.lua#L10-L20）
+function M.format_reference(filepath, start_line, end_line)
+  if start_line == end_line then
+    return string.format('@%s#L%d', filepath, start_line)
+  else
+    return string.format('@%s#L%d-L%d', filepath, start_line, end_line)
+  end
+end
+
+--- 发送 visual 选择的文件引用到终端
+---@param args table|nil 命令参数
+---@return boolean 是否发送成功
+function M.send_visual_reference(args)
+  -- 获取文件路径
+  local filepath = M.get_relative_filepath()
+  if filepath == '' then
+    vim.notify('No file in current buffer', vim.log.levels.WARN)
+    return false
+  end
+
+  -- 获取选择范围
+  local start_line, end_line = M.get_visual_selection_range(args)
+  
+  -- 格式化引用
+  local reference = M.format_reference(filepath, start_line, end_line)
+
+  -- 获取当前 tab 的终端信息
+  local term_info = M.get_current_tab_terminal()
+  if not term_info then
+    vim.notify('No terminal found in current tab. Please run :CodexOpen first.', vim.log.levels.WARN)
+    return false
+  end
+
+  -- 发送到终端
+  local success = pcall(vim.fn.chansend, term_info.job_id, reference .. '\n')
+  
+  if success then
+    logger.info('terminal_bridge', 'Sent reference to terminal:', reference)
+    return true
+  else
+    logger.error('terminal_bridge', 'Failed to send reference to terminal, job_id:', term_info.job_id)
+    vim.notify('Failed to send reference to terminal. Terminal may have been closed.', vim.log.levels.ERROR)
+    -- 清理无效的终端信息
+    local tab_id = vim.api.nvim_get_current_tabpage()
+    M.tab_terminals[tab_id] = nil
+    return false
+  end
+end
+
+--- 发送 visual 选择的内容到终端
+---@param args table|nil 命令参数
+---@return boolean 是否发送成功  
+function M.send_visual_content(args)
+  -- 获取文件路径
+  local filepath = M.get_relative_filepath()
+  if filepath == '' then
+    vim.notify('No file in current buffer', vim.log.levels.WARN)
+    return false
+  end
+
+  -- 获取选择范围
+  local start_line, end_line = M.get_visual_selection_range(args)
+  
+  -- 格式化引用
+  local reference = M.format_reference(filepath, start_line, end_line)
+  
+  -- 获取实际的代码内容
+  local lines = vim.api.nvim_buf_get_lines(0, start_line - 1, end_line, false)
+  local content = table.concat(lines, '\n')
+  local text_to_send = reference .. '\n' .. content
+
+  -- 获取当前 tab 的终端信息
+  local term_info = M.get_current_tab_terminal()
+  if not term_info then
+    vim.notify('No terminal found in current tab. Please run :CodexOpen first.', vim.log.levels.WARN)
+    return false
+  end
+
+  -- 发送到终端
+  local success = pcall(vim.fn.chansend, term_info.job_id, text_to_send .. '\n')
+  
+  if success then
+    logger.info('terminal_bridge', 'Sent content to terminal:', reference)
+    return true
+  else
+    logger.error('terminal_bridge', 'Failed to send content to terminal, job_id:', term_info.job_id)
+    vim.notify('Failed to send content to terminal. Terminal may have been closed.', vim.log.levels.ERROR)
+    -- 清理无效的终端信息
+    local tab_id = vim.api.nvim_get_current_tabpage()
+    M.tab_terminals[tab_id] = nil
+    return false
+  end
+end
+
 --- 获取所有活跃的终端信息（调试用）
 ---@return table 所有 tab 的终端信息
 function M.get_all_terminals()
