@@ -90,6 +90,60 @@ require('codex').setup({
 - `require_activity`：是否必须先看到输出变化再允许空闲判定。
 - `min_change_ticks`：至少观察到 N 次变化后，才允许将后续静默视为完成。
 
+## 终端桥接功能
+
+直接向打开的 Codex 终端发送文件路径和代码选择：
+
+- `:CodexSendPath` — 发送当前缓冲区路径到附加的终端（使用空格分隔符便于连续发送）
+- `:CodexSendSelection` — 根据配置发送可视选择作为引用或内容
+- `:CodexSendReference` — 发送可视选择作为文件引用，使用空格分隔符（如 `@file.lua#L10-L20`）
+- `:CodexSendContent` — 发送可视选择及实际代码内容
+
+**使用示例：**
+```vim
+" 发送当前文件路径
+:CodexSendPath
+
+" 可视模式：选择代码然后发送引用
+:'<,'>CodexSendSelection
+
+" 发送特定行范围作为引用
+:187,188CodexSendReference
+```
+
+### 终端桥接配置
+
+```lua
+require('codex').setup({
+  terminal_bridge = {
+    path_format = 'rel',          -- 'abs' | 'rel' | 'basename' - 文件路径格式
+    path_prefix = '@',            -- 路径前缀（如 Claude Code 的 '@'）
+    auto_attach = true,           -- 自动附加由 CodexOpen 创建的终端
+    selection_mode = 'reference', -- 'reference' | 'content' - 可视选择的默认行为
+  },
+})
+```
+
+**配置选项：**
+- `path_format`：文件路径格式化方式：
+  - `'abs'`：绝对路径（如 `@/Users/name/project/file.lua`）
+  - `'rel'`：相对于当前工作目录（如 `@file.lua` 或 `@src/module.lua`）
+  - `'basename'`：仅文件名（如 `@file.lua`）
+- `path_prefix`：路径前缀字符串（通常为 `'@'` 以兼容 Claude Code）
+- `auto_attach`：为 `true` 时，`:CodexOpen` 打开的终端自动附加到当前标签页
+- `selection_mode`：`:CodexSendSelection` 的默认行为：
+  - `'reference'`：发送文件引用如 `@file.lua#L10-L20`
+  - `'content'`：发送引用 + 实际代码内容
+
+**标签隔离**：每个标签页维护自己的终端连接，避免多标签工作时的混淆。
+
+**工作流程：**
+1. 打开 Codex 终端：`:CodexOpen`（自动附加到当前标签页）
+2. 发送文件路径：`:CodexSendPath`（路径后添加空格以便连续输入）
+3. 选择代码并发送引用：`:'<,'>CodexSendSelection`
+
+**注意：**路径和引用命令会追加空格而不是换行，允许在同一行发送多个路径/引用。例如，执行两次 `:CodexSendPath` 会得到 `@file1.lua @file2.lua` 在同一行。
+
 ## 平台说明
 
 - macOS：完整支持系统通知与声音；可选语音播报（默认关闭）。

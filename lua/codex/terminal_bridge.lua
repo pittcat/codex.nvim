@@ -116,8 +116,8 @@ function M.send_buffer_path(opts)
     opts.path_prefix
   )
 
-  -- 发送到终端
-  local success = pcall(vim.fn.chansend, term_info.job_id, formatted_path .. '\n')
+  -- 发送到终端（以空格结尾，便于连续发送）
+  local success = pcall(vim.fn.chansend, term_info.job_id, formatted_path .. ' ')
   
   if success then
     logger.info('terminal_bridge', 'Sent path to terminal:', formatted_path)
@@ -223,8 +223,8 @@ function M.send_visual_reference(args)
     return false
   end
 
-  -- 发送到终端
-  local success = pcall(vim.fn.chansend, term_info.job_id, reference .. '\n')
+  -- 发送到终端（以空格结尾，便于连续发送）
+  local success = pcall(vim.fn.chansend, term_info.job_id, reference .. ' ')
   
   if success then
     logger.info('terminal_bridge', 'Sent reference to terminal:', reference)

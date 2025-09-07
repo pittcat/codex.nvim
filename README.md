@@ -95,9 +95,9 @@ require('codex').setup({
 
 Send file paths and code selections directly to an open Codex terminal:
 
-- `:CodexSendPath` — Send current buffer path to attached terminal (e.g., `@README.md`)
+- `:CodexSendPath` — Send current buffer path to attached terminal with space separator for continuous sending
 - `:CodexSendSelection` — Send visual selection as reference or content based on configuration
-- `:CodexSendReference` — Send visual selection as file reference (e.g., `@file.lua#L10-L20`)  
+- `:CodexSendReference` — Send visual selection as file reference with space separator (e.g., `@file.lua#L10-L20`)
 - `:CodexSendContent` — Send visual selection with actual code content
 
 **Usage Examples:**
@@ -212,9 +212,9 @@ require('codex').setup({
 
 **Configuration Options:**
 - `path_format`: How file paths are formatted:
-  - `'abs'`: Absolute paths (`/full/path/to/file.lua`)
-  - `'rel'`: Relative to current working directory (`./file.lua`)
-  - `'basename'`: File name only (`file.lua`)
+  - `'abs'`: Absolute paths (e.g., `@/Users/name/project/file.lua`)
+  - `'rel'`: Relative to current working directory (e.g., `@file.lua` or `@src/module.lua`)
+  - `'basename'`: File name only (e.g., `@file.lua`)
 - `path_prefix`: String prepended to paths (typically `'@'` for Claude Code compatibility)
 - `auto_attach`: When `true`, terminals opened by `:CodexOpen` are automatically attached to current tab
 - `selection_mode`: Default behavior for `:CodexSendSelection`:
@@ -225,8 +225,10 @@ require('codex').setup({
 
 **Workflow:**
 1. Open Codex terminal: `:CodexOpen` (automatically attaches to current tab)
-2. Send file path: `:CodexSendPath` 
+2. Send file path: `:CodexSendPath` (adds space after path for continuous input)
 3. Select code and send reference: `:'<,'>CodexSendSelection`
+
+**Note:** Path and reference commands append a space instead of newline, allowing multiple paths/references to be sent on the same line. For example, executing `:CodexSendPath` twice will result in `@file1.lua @file2.lua` on the same line.
 
 **Example Key Mappings:**
 ```lua
